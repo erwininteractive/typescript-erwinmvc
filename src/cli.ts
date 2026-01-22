@@ -19,7 +19,8 @@ program
   .description("Scaffold a new MVC application")
   .option("--skip-install", "Skip npm install")
   .option("--with-database", "Include database/Prisma setup")
-  .action(async (dir: string, options: { skipInstall?: boolean; withDatabase?: boolean }) => {
+  .option("--with-ci", "Include GitHub Actions CI workflow")
+  .action(async (dir: string, options: { skipInstall?: boolean; withDatabase?: boolean; withCi?: boolean }) => {
     try {
       await initApp(dir, options);
     } catch (err) {

@@ -17,6 +17,7 @@ function getFrameworkVersion(): string {
 export interface InitOptions {
   skipInstall?: boolean;
   withDatabase?: boolean;
+  withCi?: boolean;
 }
 
 /**
@@ -78,6 +79,11 @@ export async function initApp(dir: string, options: InitOptions = {}): Promise<v
     setupDatabase(targetDir);
   }
 
+  // Setup CI if requested
+  if (options.withCi) {
+    setupCi(targetDir);
+  }
+
   console.log(`
 Next steps:
   cd ${dir}
@@ -90,6 +96,22 @@ To add database support later:
   # Edit .env with DATABASE_URL
   npx prisma migrate dev --name init
 ` : ""}`);
+}
+
+/**
+ * Setup GitHub Actions CI workflow.
+ */
+function setupCi(targetDir: string): void {
+  const workflowDir = path.join(targetDir, ".github", "workflows");
+  fs.mkdirSync(workflowDir, { recursive: true });
+
+  const ciTemplateDir = path.join(getTemplatesDir(), "ci");
+  const testWorkflow = path.join(ciTemplateDir, "test.yml");
+
+  if (fs.existsSync(testWorkflow)) {
+    fs.copyFileSync(testWorkflow, path.join(workflowDir, "test.yml"));
+    console.log("GitHub Actions CI workflow added.");
+  }
 }
 
 /**

@@ -295,6 +295,7 @@ app.get("/protected", authenticate, (req, res) => {
 |--------|-------------|
 | `--skip-install` | Skip running npm install |
 | `--with-database` | Include Prisma database setup |
+| `--with-ci` | Include GitHub Actions CI workflow |
 
 ### Resource Options
 
@@ -353,6 +354,121 @@ public/images/logo.png  →  /images/logo.png
 | `npm start` | Run production build |
 | `npm run db:setup` | Install database dependencies |
 | `npm run db:migrate` | Run database migrations |
+
+---
+
+## CI/CD (Optional)
+
+Add GitHub Actions CI to your project for automated testing:
+
+```bash
+npx @erwininteractive/mvc init myapp --with-ci
+```
+
+Or add CI to an existing project by creating `.github/workflows/test.yml`:
+
+```yaml
+name: Test
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run tests
+        run: npm test
+
+      - name: Build
+        run: npm run build
+```
+
+### Adding Database Tests
+
+If your app uses a database, add PostgreSQL as a service:
+
+```yaml
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run migrations
+        run: npx prisma migrate deploy
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/test
+
+      - name: Run tests
+        run: npm test
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/test
+
+      - name: Build
+        run: npm run build
+```
+
+### Secrets
+
+For production deployments, add these secrets in your GitHub repository settings:
+
+| Secret | Description |
+|--------|-------------|
+| `DATABASE_URL` | Production database connection string |
+| `REDIS_URL` | Production Redis connection string |
+| `JWT_SECRET` | Secret key for JWT signing |
+| `SESSION_SECRET` | Secret key for session encryption |
+
+Access secrets in your workflow:
+
+```yaml
+env:
+  DATABASE_URL: ${{ secrets.DATABASE_URL }}
+  JWT_SECRET: ${{ secrets.JWT_SECRET }}
+```
 
 ---
 
