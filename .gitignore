@@ -1,4 +1,5 @@
 website/node_modules
 website/.env
+node_modules
 .gitignore
 AGENTS.md
