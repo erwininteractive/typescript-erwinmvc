@@ -1,5 +1,3 @@
-#!/usr/bin/env node
-
 import { Command } from "commander";
 import { initApp } from "./generators/initApp";
 import { generateModel } from "./generators/generateModel";
@@ -20,14 +18,23 @@ program
   .option("--skip-install", "Skip npm install")
   .option("--with-database", "Include database/Prisma setup")
   .option("--with-ci", "Include GitHub Actions CI workflow")
-  .action(async (dir: string, options: { skipInstall?: boolean; withDatabase?: boolean; withCi?: boolean }) => {
-    try {
-      await initApp(dir, options);
-    } catch (err) {
-      console.error("Error:", err instanceof Error ? err.message : err);
-      process.exit(1);
-    }
-  });
+  .action(
+    async (
+      dir: string,
+      options: {
+        skipInstall?: boolean;
+        withDatabase?: boolean;
+        withCi?: boolean;
+      },
+    ): Promise<void> => {
+      try {
+        await initApp(dir, options);
+      } catch (err) {
+        console.error("Error:", err instanceof Error ? err.message : err);
+        process.exit(1);
+      }
+    },
+  );
 
 // Generate command group
 const generate = program
@@ -40,14 +47,16 @@ generate
   .command("model <name>")
   .description("Generate a Prisma model")
   .option("--skip-migrate", "Skip running Prisma migrate")
-  .action(async (name: string, options: { skipMigrate?: boolean }) => {
-    try {
-      await generateModel(name, options);
-    } catch (err) {
-      console.error("Error:", err instanceof Error ? err.message : err);
-      process.exit(1);
-    }
-  });
+  .action(
+    async (name: string, options: { skipMigrate?: boolean }): Promise<void> => {
+      try {
+        await generateModel(name, options);
+      } catch (err) {
+        console.error("Error:", err instanceof Error ? err.message : err);
+        process.exit(1);
+      }
+    },
+  );
 
 // Generate controller
 generate
@@ -81,15 +90,15 @@ generate
         skipViews?: boolean;
         skipMigrate?: boolean;
         apiOnly?: boolean;
-      }
-    ) => {
+      },
+    ): Promise<void> => {
       try {
         await generateResource(name, options);
       } catch (err) {
         console.error("Error:", err instanceof Error ? err.message : err);
         process.exit(1);
       }
-    }
+    },
   );
 
 program.parse();
