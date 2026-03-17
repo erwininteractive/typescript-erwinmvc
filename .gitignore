@@ -1,5 +1,6 @@
 website/node_modules
 website/.env
+dist
 node_modules
 .gitignore
 AGENTS.md
