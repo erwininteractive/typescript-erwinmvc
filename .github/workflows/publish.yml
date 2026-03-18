@@ -88,8 +88,10 @@ jobs:
           git add package.json package-lock.json CHANGELOG.md
           git commit -m "chore(release): $NEW_VERSION" -m "Release version $NEW_VERSION"
           
-          # Create tag
-          git tag "v$NEW_VERSION"
+           # Create tag (delete old tag if exists)
+           git tag -d "v$NEW_VERSION" 2>/dev/null || true
+           git push origin ":refs/tags/v$NEW_VERSION" 2>/dev/null || true
+           git tag "v$NEW_VERSION"
           
           # Push changes and tag
           git push origin main
