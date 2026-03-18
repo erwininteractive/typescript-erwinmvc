@@ -1,0 +1,149 @@
+name: Publish to npm
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      id-token: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          registry-url: "https://registry.npmjs.org"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build project
+        run: npm run build
+
+      - name: Run tests
+        run: npm test
+
+      - name: Bump version and tag
+        id: version
+        run: |
+          # Read current version
+          CURRENT_VERSION=$(node -p "require('./package.json').version")
+          
+          # Check if this is a pre-release (alpha, beta, rc)
+          if [[ "$CURRENT_VERSION" =~ - ]]; then
+            echo "Pre-release version detected, not bumping"
+            echo "version=$CURRENT_VERSION" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+          
+          # Parse version parts
+          IFS='.' read -r MAJOR MINOR PATCH <<< "$CURRENT_VERSION"
+          
+          # Determine bump type based on commit message
+          BUMP_TYPE="patch"
+          if git log -1 --pretty=%B | grep -q "feat:"; then
+            BUMP_TYPE="minor"
+          elif git log -1 --pretty=%B | grep -q "breaking\|major"; then
+            BUMP_TYPE="major"
+          fi
+          
+          # Calculate new version
+          case $BUMP_TYPE in
+            major)
+              NEW_MAJOR=$((MAJOR + 1))
+              NEW_MINOR=0
+              NEW_PATCH=0
+              ;;
+            minor)
+              NEW_MAJOR=$MAJOR
+              NEW_MINOR=$((MINOR + 1))
+              NEW_PATCH=0
+              ;;
+            patch)
+              NEW_MAJOR=$MAJOR
+              NEW_MINOR=$MINOR
+              NEW_PATCH=$((PATCH + 1))
+              ;;
+          esac
+          
+          NEW_VERSION="$NEW_MAJOR.$NEW_MINOR.$NEW_PATCH"
+          echo "version=$NEW_VERSION" >> $GITHUB_OUTPUT
+          
+          # Update package.json
+          npm --no-git-tag-version version $BUMP_TYPE
+          
+          # Add dist to git
+          git add dist/
+          
+          # Commit changes
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git commit -m "chore(release): $NEW_VERSION" -m "Release version $NEW_VERSION"
+          
+          # Create tag
+          git tag "v$NEW_VERSION"
+          
+          # Push changes and tag
+          git push origin main
+          git push origin "v$NEW_VERSION"
+
+      - name: Generate Changelog
+        id: changelog
+        run: |
+          CURRENT_VERSION=$(node -p "require('./package.json').version")
+          
+          # Generate changelog from commits since last tag
+          LAST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
+          
+          echo "## Release v$CURRENT_VERSION" > CHANGELOG.md
+          echo "" >> CHANGELOG.md
+          echo "### Changes" >> CHANGELOG.md
+          echo "" >> CHANGELOG.md
+          
+          if [ -n "$LAST_TAG" ]; then
+            git log "${LAST_TAG}..HEAD" --pretty=format:"- %s" >> CHANGELOG.md
+          else
+            git log --pretty=format:"- %s" >> CHANGELOG.md
+          fi
+          
+          echo "" >> CHANGELOG.md
+          echo "---" >> CHANGELOG.md
+          echo "" >> CHANGELOG.md
+          echo "See [CONTRIBUTING.md](CONTRIBUTING.md) for commit message guidelines." >> CHANGELOG.md
+          
+          echo "changelog_created=true" >> $GITHUB_OUTPUT
+
+      - name: Commit Changelog
+        if: steps.version.outputs.version != ''
+        run: |
+          git add CHANGELOG.md
+          git commit -m "docs(changelog): update for v$(node -p "require('./package.json').version")" || true
+          git push origin main
+
+      - name: Publish to npm
+        if: steps.version.outputs.version != ''
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: npm publish --provenance --access public
+
+      - name: Create GitHub Release
+        if: steps.version.outputs.version != ''
+        uses: softprops/action-gh-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: v${{ steps.version.outputs.version }}
+          name: Release v${{ steps.version.outputs.version }}
+          body_path: CHANGELOG.md
+          draft: false
+          prerelease: false

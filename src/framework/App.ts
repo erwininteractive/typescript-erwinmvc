@@ -1,4 +1,4 @@
-import express, { Express } from "express";
+import express, { Express, Request, Response, NextFunction } from "express";
 import session from "express-session";
 import { createClient, RedisClientType } from "redis";
 import RedisStore from "connect-redis";
@@ -104,6 +104,20 @@ export async function createMvcApp(options: MvcAppOptions = {}): Promise<MvcApp>
   app.set("view engine", "ejs");
   app.set("views", path.resolve(viewsPath));
 
+  // Add respond helper to response
+  app.use((req, res, next) => {
+    (res as any).respond = function (viewName: string, data: Record<string, unknown>) {
+      const accept = req.headers.accept as string | undefined;
+      if (accept?.includes("application/json")) {
+        res.json(data);
+      } else {
+        res.render(viewName, data);
+      }
+      return res;
+    };
+    next();
+  });
+
   return { app, redisClient };
 }
 
@@ -135,4 +149,37 @@ export function startServer(
   app.listen(port, () => {
     console.log(`Server listening on port ${port}`);
   });
+}
+
+/**
+ * Helper for content negotiation - respond with EJS view or JSON based on Accept header.
+ * @param res - Express response object
+ * @param viewName - Name of the EJS view to render (without extension)
+ * @param data - Data to pass to the view or send as JSON
+ * 
+ * If Accept header contains "text/html", renders the view.
+ * If Accept header contains "application/json", sends JSON response.
+ */
+export function respond(
+  res: Response,
+  viewName: string,
+  data: Record<string, unknown>
+): Response {
+  const accept = res.getHeader("Accept") as string | undefined;
+  
+  if (accept?.includes("application/json")) {
+    res.json(data);
+  } else {
+    res.render(viewName, data);
+  }
+  return res;
+}
+
+// Extend Express types to include respond method
+declare global {
+  namespace Express {
+    interface Response {
+      respond: typeof respond;
+    }
+  }
 }
