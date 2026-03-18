@@ -129,10 +129,10 @@ function setupDatabase(targetDir: string): void {
     fs.copyFileSync(frameworkPrismaSchema, path.join(prismaDir, "schema.prisma"));
   }
 
-  // Install Prisma
+  // Install Prisma (pin to v6 to avoid breaking changes in v7)
   console.log("\nSetting up database...");
   try {
-    execSync("npm install @prisma/client prisma", { cwd: targetDir, stdio: "inherit" });
+    execSync("npm install @prisma/client@^6.0.0 prisma@^6.0.0", { cwd: targetDir, stdio: "inherit" });
     execSync("npx prisma generate", { cwd: targetDir, stdio: "inherit" });
   } catch {
     console.error("Failed to setup Prisma. Run 'npm run db:setup' manually.");
