@@ -1,3 +1,5 @@
+#!/usr/bin/env node
+
 import { Command } from "commander";
 import { initApp } from "./generators/initApp";
 import { generateModel } from "./generators/generateModel";
