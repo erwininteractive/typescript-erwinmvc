@@ -1,4 +1,4 @@
-## Release v0.3.3
+## Release v0.3.4
 
 ### Changes
 
